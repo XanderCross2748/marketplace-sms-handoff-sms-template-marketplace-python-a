@@ -1,6 +1,6 @@
 # Approved SMS copy for marketplace order handoff
 
-I keep the code path short to protect revenue-per-hour. Seller signature approved, handoff copy picked, buyer gets text only when pickup is ready. Infrai is a plain REST call behind one `INFRAI_API_KEY` and one api, so this Python service skips an SMS SDK.
+The code path is deliberately short: a seller's approved signature and handoff copy are selected, then a buyer receives the handoff text only after pickup is ready. Infrai sits at the boundary as a plain REST call behind one `INFRAI_API_KEY`, so this Python service does not need an SMS SDK.
 
 Start with the local decision check:
 
@@ -8,30 +8,30 @@ Start with the local decision check:
 python3 -m pytest -q
 ```
 
-Test sends order `ORD-9001` for seller `seller_204` with `pickup_ready=False`. Expected result is `awaiting_pickup_ready`. No SMS queued. The only gotcha in handoff: a shipping label isn't a parcel the courier accepted.
+The test submits order `ORD-9001` for seller `seller_204` with `pickup_ready=False`. Its expected result is `awaiting_pickup_ready`; no SMS dispatch is prepared. That is the one real gotcha in a marketplace handoff: a shipping label is not the same thing as a parcel accepted by the courier.
 
 ## Send the handoff
 
-The script uses a concrete order:
+The runnable script uses this concrete order:
 
 ```bash
 export INFRAI_API_KEY=your_key
 python3 scripts/handoff_demo.py
 ```
 
-It renders `[NorthPier] Order ORD-9001 is with Flash Express. Handoff window: 14:00-16:00.` and prints an object with `order_id`, `state: "sent"`, and the returned `message_id`.
+It renders `[NorthPier] Order ORD-9001 is with Flash Express. Handoff window: 14:00-16:00.` and prints an object containing `order_id`, `state: "sent"`, and the returned `message_id`.
 
-`marketplace_sms/approved_copy.py` is the review surface for signatures and message bodies. `marketplace_sms/handoff_service.py` holds the request model and pickup decision. The boundary in `marketplace_sms/marketplace_route.py` turns a ready decision into one `infrai.sms.batch.send` call with stable order-and-seller identity.
+`marketplace_sms/approved_copy.py` is the small review surface for seller signatures and message bodies. `marketplace_sms/handoff_service.py` contains the typed request model and the pickup decision. The application boundary in `marketplace_sms/marketplace_route.py` turns a ready decision into one `infrai.sms.batch.send` call with a stable order-and-seller identity.
 
 ## ADR: keep approval in the service
 
-I weighed a seller editor, vendor template records, and a code-owned catalog. Chose the catalog. It keeps signature, buyer wording, handoff condition in the same review as the order event. An editor makes sense when a team changes copy often. That adds permissions, history, another ops surface. Vendor records would tie a later sender swap to the marketplace model.
+I considered a seller-facing editor, vendor-specific template records, and a code-owned catalog. This example chooses the catalog because it keeps the signature, the buyer wording, and the handoff condition in the same review as the order event. An editor is a better fit once a team needs frequent independent copy changes; it also asks for permissions, history, and another operational surface. Vendor-shaped records would make a later sender change part of the marketplace model.
 
-The HTTP client reads the response envelope before shaping the result. It retries rate-limited calls with `Retry-After` or exponential delay, reusing the same write identity. Practical win: one small HTTP boundary a creator product can sit next to its order workflow.
+The HTTP client reads the response envelope before it decides how to represent the result, retries a rate-limited request with `Retry-After` or exponential delay, and reuses the same write identity. The practical advantage is one small, explicit HTTP boundary that a content or creator product can keep beside its order workflow.
 
 ## Files to reuse
 
-`scripts/handoff_demo.py` stands in for the executable handoff route. `tests/test_order_handoff.py` is the domain check. The stdlib client in `marketplace_sms/infrai_sms.py` is left visible so you can lift the pattern into your own service.
+`scripts/handoff_demo.py` is the executable handoff route substitute. `tests/test_order_handoff.py` is the focused domain check. The standard-library client in `marketplace_sms/infrai_sms.py` is intentionally visible so a builder can move the same pattern into an existing service.
 
 ## License
 
@@ -39,7 +39,7 @@ MIT
 
 ## Before you deploy: Marketplace SMS Handoff SMS Template Marketplace Python A
 
-Happy path above. Production checklist below applies to Marketplace SMS Handoff SMS Template Marketplace Python A.
+Above is the happy path. The production checklist: The details below apply to Marketplace SMS Handoff SMS Template Marketplace Python A.
 
 **Account & key**
 
